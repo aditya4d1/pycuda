@@ -1,3 +1,7 @@
+# Edited by Aditya Atluri to encorporate linkers and putting '=' between arch and sm_**
+# This is used during the compilation of dynamic parallelism API
+# example: nvcc --cubin -arch=sm_35 -m64 -rdc=true -Ic:\python33\lib\site-packages\pycuda\cuda kernel.cu -lcudadevrt
+# previously, it would be nvcc --cubin -arch sm_35 -m64 -rdc=true -lcudadevrt -Ic:\python33\lib\site-packages\pycuda\cuda kernel.cu
 from pytools import memoize
 # don't import pycuda.driver here--you'll create an import loop
 import sys
@@ -67,7 +71,7 @@ def preprocess_source(source, options, nvcc):
 
 
 
-def compile_plain(source, options, keep, nvcc, cache_dir):
+def compile_plain(source, options, keep, nvcc, cache_dir, linkers):
     from os.path import join
 
     if cache_dir:
@@ -80,6 +84,12 @@ def compile_plain(source, options, keep, nvcc, cache_dir):
 
         for option in options: 
             checksum.update(option.encode("utf-8"))
+        if linkers is None:
+            linkers = []
+        else:
+            for linker in linkers:
+                checksum.update(linker.encode("utf-8"))
+
         checksum.update(get_nvcc_version(nvcc).encode("utf-8"))
         from pycuda.characterize import platform_bits
         checksum.update(str(platform_bits()).encode("utf-8"))
@@ -114,7 +124,7 @@ def compile_plain(source, options, keep, nvcc, cache_dir):
 
         print "*** compiler output in %s" % file_dir
 
-    cmdline = [nvcc, "--cubin"] + options + [cu_file_name]
+    cmdline = [nvcc, "--cubin"] + options + [cu_file_name] + linkers
     result, stdout, stderr = call_capture_output(cmdline, cwd=file_dir, error_on_nonzero=False)
 
     try:
@@ -194,7 +204,7 @@ DEFAULT_NVCC_FLAGS = [
 
 def compile(source, nvcc="nvcc", options=None, keep=False,
         no_extern_c=False, arch=None, code=None, cache_dir=None,
-        include_dirs=[]):
+        include_dirs=[], linkers=None):
 
     if not no_extern_c:
         source = 'extern "C" {\n%s\n}\n' % source
@@ -203,6 +213,10 @@ def compile(source, nvcc="nvcc", options=None, keep=False,
         options = DEFAULT_NVCC_FLAGS
 
     options = options[:]
+
+    if linkers is not None:
+        linkers = linkers[:]
+
     if arch is None:
         try:
             from pycuda.driver import Context
@@ -231,7 +245,7 @@ def compile(source, nvcc="nvcc", options=None, keep=False,
                 raise
 
     if arch is not None:
-        options.extend(["-arch", arch])
+        options.extend(["-arch=%s"% arch])
 
     if code is not None:
         options.extend(["-code", code])
@@ -249,17 +263,17 @@ def compile(source, nvcc="nvcc", options=None, keep=False,
     for i in include_dirs:
         options.append("-I"+i)
 
-    return compile_plain(source, options, keep, nvcc, cache_dir)
+    return compile_plain(source, options, keep, nvcc, cache_dir, linkers)
 
 
 class SourceModule(object):
     def __init__(self, source, nvcc="nvcc", options=None, keep=False,
             no_extern_c=False, arch=None, code=None, cache_dir=None,
-            include_dirs=[]):
+            include_dirs=[], linkers=None):
         self._check_arch(arch)
 
         cubin = compile(source, nvcc, options, keep, no_extern_c, 
-                arch, code, cache_dir, include_dirs)
+                arch, code, cache_dir, include_dirs,linkers)
 
         from pycuda.driver import module_from_buffer
         self.module = module_from_buffer(cubin)
