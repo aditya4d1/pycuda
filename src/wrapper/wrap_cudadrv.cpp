@@ -318,7 +318,9 @@ namespace
     if (PyObject_AsCharBuffer(buffer.ptr(), &mod_buf, &len))
       throw py::error_already_set();
     CUmodule mod;
-
+//    CUlinkState linkState;
+//    float walltime;
+    
 #if CUDAPP_CUDA_VERSION >= 2010
     const size_t buf_size = 32768;
     char info_buf[buf_size], error_buf[buf_size];
@@ -345,6 +347,10 @@ namespace
 
     CUDAPP_PRINT_CALL_TRACE("cuModuleLoadDataEx");
     CUresult cu_status_code; \
+//    void* cubin;
+//    size_t cubinSize;
+//    cuLinkCreate((unsigned int) options.size(), const_cast<CUjit_option *>(&*options.begin()), const_cast<void **>(&*options_values.begin(), &linkState);
+//    cu_status_code = cuLinkAddData(linkState, CU_JIT_INPUT_PTX, (void*)mod_buf, strlen(mod_buf)+1, 0, 0, 0, 0);
     cu_status_code = cuModuleLoadDataEx(&mod, mod_buf, (unsigned int) options.size(),
          const_cast<CUjit_option *>(&*options.begin()),
          const_cast<void **>(&*option_values.begin()));
@@ -360,6 +366,37 @@ namespace
     if (cu_status_code != CUDA_SUCCESS)
       throw pycuda::error("cuModuleLoadDataEx", cu_status_code,
           std::string(error_buf, error_buf_size).c_str());
+    
+//    cuLinkComplete(linkState, &cubin, &cubinSize);
+//    cuModuleLoadData(cuModule, cubin);
+//    cuLinkDestroy(linkState);
+/*
+ The commented out statements are for cuModuleLoadData.
+ These are not tested. They are commented out because,
+ the options are different from cuModuleLoadDataEx.
+ cuModuleLoadData:
+ options[0] = CU_JIT_WALL_TIME;
+ values[0] = (void*)&walltime;
+ options[1] = CU_JIT_INFO_LOG_BUFFER;
+ values[1] = (void*)info_log;
+ options[2] = CU_JIT_INFO_LOG_BUFFER_SIZE_BYTES;
+ values[2] = (void*)BUFFER_SIZE;
+ options[3] = CU_JIT_ERROR_LOG_BUFFER;
+ values[3] = (void*)error_log;
+ options[4] = CU_JIT_ERROR_LOG_BUFFER_SIZE_BYTES;
+ values[4] = (void*)BUFFER_SIZE;
+ options[5] = CU_JIT_LOG_VERBOSE;
+ values[5] = (void*)1;
+
+ cuModuleLoadDataEx:
+ options[0] = CU_JIT_ERROR_LOG_BUFFER;
+ values[0]  = (void*)error_log;
+ options[1] = CU_JIT_ERROR_LOG_BUFFER_SIZE_BYTES;
+ values[1]  = (void*)BUFFER_SIZE;
+ options[2] = CU_JIT_TARGET_FROM_CUCONTEXT;
+ values[2]  = 0;
+
+*/    
 #else
     if (py::len(py_options))
       throw pycuda::error("module_from_buffer", CUDA_ERROR_INVALID_VALUE,
